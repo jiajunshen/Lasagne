@@ -11,6 +11,8 @@ from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 
 
 __all__ = [
+    "ThresholdLayer",
+    "DiffThresholdLayer",
     "NonlinearityLayer",
     "BiasLayer",
     "ScaleLayer",
@@ -25,6 +27,52 @@ __all__ = [
     "rrelu",
 ]
 
+
+class ThresholdLayer(Layer):
+    """
+    lasagne.layers.ThresholdLayer(incoming,
+    threshold = 0, **kwargs)
+
+    A layer that just thresholds the input layer, and output an binary value for each location.
+
+    Parameters
+    ----------
+    incoming : a :class:`Layer` instance or a tuple
+        The layer feeding into this layer, or the expected input shape
+
+    
+    threshold: theano shared variable
+    """
+
+    def __init__(self, incoming, threshold=init.Constant(0), **kwargs):
+        super(ThresholdLayer, self).__init__(incoming, **kwargs)
+        self.threshold = threshold
+    
+    def get_output_for(self, input, **kwargs):
+        return nonlinearities.threshold(input)
+
+
+class DiffThresholdLayer(Layer):
+    """
+    lasagne.layers.ThresholdLayer(incoming,
+    threshold = 0, **kwargs)
+
+    A layer that just thresholds the input layer, and output an binary value for each location.
+
+    Parameters
+    ----------
+    incoming : a :class:`Layer` instance or a tuple
+        The layer feeding into this layer, or the expected input shape
+
+    
+    threshold: theano shared variable
+    """
+
+    def __init__(self, incoming, **kwargs):
+        super(DiffThresholdLayer, self).__init__(incoming, **kwargs)
+    
+    def get_output_for(self, input, **kwargs):
+        return 2 * nonlinearities.sigmoid(input) - 1
 
 class NonlinearityLayer(Layer):
     """
@@ -47,7 +95,7 @@ class NonlinearityLayer(Layer):
         super(NonlinearityLayer, self).__init__(incoming, **kwargs)
         self.nonlinearity = (nonlinearities.identity if nonlinearity is None
                              else nonlinearity)
-
+        
     def get_output_for(self, input, **kwargs):
         return self.nonlinearity(input)
 
