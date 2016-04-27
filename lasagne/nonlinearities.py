@@ -140,6 +140,10 @@ class ScaledTanH(object):
 ScaledTanh = ScaledTanH  # alias with alternative capitalization
 
 
+def threshold(x):
+    y = theano.tensor.nnet.relu(x)
+    return theano.tensor.switch(x > 0, 1, 0)
+
 # rectify
 def rectify(x):
     """Rectify activation function :math:`\\varphi(x) = \\max(0, x)`
@@ -232,6 +236,7 @@ very_leaky_rectify.__doc__ = """very_leaky_rectify(x)
 
      Instance of :class:`LeakyRectify` with leakiness :math:`\\alpha=1/3`
      """
+
 
 
 # elu
