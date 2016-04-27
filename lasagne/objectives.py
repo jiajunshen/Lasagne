@@ -80,9 +80,11 @@ import theano.tensor.nnet
 from lasagne.layers import get_output
 
 __all__ = [
+    "smoothL1",
     "binary_crossentropy",
     "categorical_crossentropy",
     "squared_error",
+    "mse",
     "aggregate",
     "binary_hinge_loss",
     "multiclass_hinge_loss",
@@ -146,6 +148,12 @@ def categorical_crossentropy(predictions, targets):
     return theano.tensor.nnet.categorical_crossentropy(predictions, targets)
 
 
+def mse(x, t):
+    """Calculates the MSE mean across all dimensions, i.e. feature
+     dimension AND minibatch dimension.
+    """
+    return T.mean((x - t) ** 2)
+
 def squared_error(a, b):
     """Computes the element-wise squared difference between two tensors.
 
@@ -159,7 +167,7 @@ def squared_error(a, b):
     Returns
     -------
     Theano tensor
-        An expression for the element-wise squared difference.
+        An expression for the item-wise squared difference.
 
     Notes
     -----
@@ -168,6 +176,16 @@ def squared_error(a, b):
     """
     return (a - b)**2
 
+
+def smoothL1(a, b):
+    """Computes the L1 smooth loss between two tensors
+    """
+    diff = a - b
+    X = abs(diff)
+    Y = X
+    Y = theano.tensor.set_subtensor(Y[(Y < 1).nonzero()], X[(X < 1).nonzero()]**2 * 0.5)
+    Y = theano.tensor.set_subtensor(Y[(Y >= 1).nonzero()], X[(X >= 1).nonzero()] - 0.5)
+    return Y
 
 def aggregate(loss, weights=None, mode='mean'):
     """Aggregates an element- or item-wise loss to a scalar loss.
