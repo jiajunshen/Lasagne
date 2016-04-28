@@ -1,5 +1,6 @@
 import theano.tensor.nnet
 import theano.tensor as T
+import numpy as np
 from ..import init
 from ..import nonlinearities
 from ..utils import as_tuple
@@ -74,15 +75,14 @@ class MultiGaussianMixture(Layer):
         
         sigma_inverse_sqrt = T.sqrt(1.0/sigma_reshape)
 
-        sigma_determinant = T.prod(sigma_reshape, axis = 3)
         
-        logComponentSum = -T.sqr((inputData_reshape - mean_reshape) * sigma_inverse_sqrt).sum(axis = 3) - T.log(sigma_determinant) + T.log(weights_reshape)
-         
+        logComponentOutput = - 1.0 / 2 * (T.sqr((inputData_reshape - mean_reshape) * sigma_inverse_sqrt).sum(axis = 3) + T.log(sigma_reshape).sum(axis = 3) + T.ones((self.num_models, self.num_components)) * self.dim * np.log(2 * np.pi))
+        logComponentSum = logComponentOutput + T.log(weights_reshape) 
         componentSum = T.exp(logComponentSum)
         componentSum = componentSum.clip(a_min = 1e-32, a_max = 1e32) 
         classSum = -(T.log(componentSum.sum(axis = 2)) * inputLabel).sum(axis = 1)
         
-        return classSum
+        return logComponentOutput
                 
 
 
