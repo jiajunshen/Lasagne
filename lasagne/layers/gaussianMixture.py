@@ -43,14 +43,14 @@ class MultiGaussianMixture(Layer):
         self.dim = self.input_shape[1] - n_classes
         self.num_components = num_components
         self.num_models = n_classes
-        _means = init.Constant(0)
+        #_means = init.Constant(0)
         self._means = self.add_param(_means, (self.num_models, self.num_components, self.dim), name = "Means", regularizable = True)
         if weights is None:
             weights = init.Constant(1.0/num_components)
             self.weights = self.add_param(weights, (self.num_models, self.num_components,), name = "Weights", regularizable=True, trainable = False)
         if sigma is None:
-            sigma = init.Constant(0.1)
-            self.sigma = self.add_param(sigma, (self.num_models, self.num_components, self.dim), name = "Sigmas", regularizable = True)
+            sigma = init.Constant(1.0)
+            self.sigma = self.add_param(sigma, (self.num_models, self.num_components, self.dim), name = "Sigmas", regularizable = True, trainable = False)
 
     def get_output_shape_for(self, input_shape):
         return (input_shape[0],)            
@@ -71,9 +71,11 @@ class MultiGaussianMixture(Layer):
         mean_reshape = self._means.dimshuffle('x', 0, 1, 2)
         mean_reshape = T.patternbroadcast(mean_reshape, (True, False, False,False))
         mean_reshape.name = 'mean_reshape'
+        #self.sigma = nonlinearities.rectify(self.sigma) + T.ones_like(self.sigma)
         sigma_reshape = self.sigma.dimshuffle('x', 0, 1, 2)
         sigma_reshape = T.patternbroadcast(sigma_reshape, (True, False, False, False))
         sigma_reshape.name = 'sigma_reshape'
+        #self.weights = nonlinearities.rectify(self.weights) + 1e-16
         #weights_norm = T.sqrt(T.sum(self.weights**2, axis = 1))
         #weights_norm = T.patternbroadcast(weights_norm.dimshuffle(0,'x'), (False, True))
         #self.weights = self.weights / weights_norm
@@ -84,8 +86,12 @@ class MultiGaussianMixture(Layer):
         sigma_inverse_sqrt = T.sqrt(1.0/sigma_reshape)
         sigma_inverse_sqrt.name = 'sigma_inverse_sqrt'
 
+        sqrtTemp = T.sqr((inputData_reshape - mean_reshape) * sigma_inverse_sqrt).sum(axis = 3) 
+        sigmaTemp = T.log(sigma_reshape).sum(axis = 3)
+        dimTemp = T.ones((self.num_models, self.num_components), 'float32') * self.dim * T.log(2.0 * np.pi)
         
-        logComponentOutput = - 1.0 / 2 * (T.sqr((inputData_reshape - mean_reshape) * sigma_inverse_sqrt).sum(axis = 3) + T.log(sigma_reshape).sum(axis = 3) + T.ones((self.num_models, self.num_components), 'float32') * self.dim * T.log(2.0 * np.pi))
+        logComponentOutput = - 1.0 / 2 * (sqrtTemp + sigmaTemp + dimTemp)
+        #logComponentOutput = -1.0/2 * sqrtTemp
         logComponentOutput.name = 'logComponentOutput'
         logComponentSum = logComponentOutput + T.log(weights_reshape) 
         logComponentSum.name = 'logComponentSum'
@@ -93,7 +99,9 @@ class MultiGaussianMixture(Layer):
         logComponentSum_mean_reshape = logComponentSum_mean.dimshuffle(0, 1, 'x')
         componentSum_before = T.exp(logComponentSum - logComponentSum_mean_reshape)
         addLog =  T.log(componentSum_before.sum(axis = 2) + T.ones_like(inputLabel)) + logComponentSum_mean
+        #addLog = (componentSum_before + T.ones_like().sum(axis = 2)
         classSum = -((addLog) * inputLabel).sum(axis = 1)
+        #return logComponentOutput, sqrtTemp, sigmaTemp, dimTemp, logComponentSum, logComponentSum_mean_reshape, componentSum_before, addLog, classSum
         return classSum
                 
 
