@@ -40,17 +40,19 @@ class MultiGaussianMixture(Layer):
     def __init__(self, incoming, num_components, n_classes, _means = init.GlorotUniform(), weights = None, sigma = None, **kwargs):
         super(MultiGaussianMixture, self).__init__(incoming, **kwargs)
 
-        self.dim = self.input_shape[1] - n_classes
+        self.dim = self.input_shape[1]
         self.num_components = num_components
         self.num_models = n_classes
         #_means = init.Constant(0)
         self._means = self.add_param(_means, (self.num_models, self.num_components, self.dim), name = "Means", regularizable = True)
         if weights is None:
             weights = init.Constant(1.0/num_components)
-            self.weights = self.add_param(weights, (self.num_models, self.num_components,), name = "Weights", regularizable=True, trainable = False)
+
+        self.weights = self.add_param(weights, (self.num_models, self.num_components,), name = "Weights", regularizable=True, trainable = False)
+        
         if sigma is None:
             sigma = init.Constant(1.0)
-            self.sigma = self.add_param(sigma, (self.num_models, self.num_components, self.dim), name = "Sigmas", regularizable = True, trainable = False)
+        self.sigma = self.add_param(sigma, (self.num_models, self.num_components, self.dim), name = "Sigmas", regularizable = True, trainable = False)
 
     def get_output_shape_for(self, input_shape):
         return (input_shape[0],)            
@@ -59,11 +61,10 @@ class MultiGaussianMixture(Layer):
 
         if input.ndim > 2:
             input = inpu.flatten(2)
-        inputData = input[:,:-self.num_models]
+
+        inputData = input * 10
         inputData.name = 'inputData'
-        inputLabel = input[:,-self.num_models:]
-        inputLabel.name = 'inputLabel'
-        #inputData_reshape has dimension: (n, 1, 1, p)
+        
         inputData_reshape = inputData.dimshuffle(0, 'x', 'x', 1)
         inputData_reshape.name = 'inputData_reshape'
         inputData_reshape = T.patternbroadcast(inputData_reshape, (False, True, True, False))
@@ -71,10 +72,12 @@ class MultiGaussianMixture(Layer):
         mean_reshape = self._means.dimshuffle('x', 0, 1, 2)
         mean_reshape = T.patternbroadcast(mean_reshape, (True, False, False,False))
         mean_reshape.name = 'mean_reshape'
+
         #self.sigma = nonlinearities.rectify(self.sigma) + T.ones_like(self.sigma)
         sigma_reshape = self.sigma.dimshuffle('x', 0, 1, 2)
         sigma_reshape = T.patternbroadcast(sigma_reshape, (True, False, False, False))
         sigma_reshape.name = 'sigma_reshape'
+
         #self.weights = nonlinearities.rectify(self.weights) + 1e-16
         #weights_norm = T.sqrt(T.sum(self.weights**2, axis = 1))
         #weights_norm = T.patternbroadcast(weights_norm.dimshuffle(0,'x'), (False, True))
@@ -86,8 +89,14 @@ class MultiGaussianMixture(Layer):
         sigma_inverse_sqrt = T.sqrt(1.0/sigma_reshape)
         sigma_inverse_sqrt.name = 'sigma_inverse_sqrt'
 
+        # positive: 
         sqrtTemp = T.sqr((inputData_reshape - mean_reshape) * sigma_inverse_sqrt).sum(axis = 3) 
+        
+        # negative: 784 * log(sigma) ? sigma = 0.1 -> -1805, else positive.
         sigmaTemp = T.log(sigma_reshape).sum(axis = 3)
+        
+
+        # positive:28x28 dimension, then we have 784 * log(2\pi) = 1440
         dimTemp = T.ones((self.num_models, self.num_components), 'float32') * self.dim * T.log(2.0 * np.pi)
         
         logComponentOutput = - 1.0 / 2 * (sqrtTemp + sigmaTemp + dimTemp)
@@ -98,11 +107,11 @@ class MultiGaussianMixture(Layer):
         logComponentSum_mean = logComponentSum.mean(axis = 2)
         logComponentSum_mean_reshape = logComponentSum_mean.dimshuffle(0, 1, 'x')
         componentSum_before = T.exp(logComponentSum - logComponentSum_mean_reshape)
-        addLog =  T.log(componentSum_before.sum(axis = 2) + T.ones_like(inputLabel)) + logComponentSum_mean
+        componentSum_before_sum = componentSum_before.sum(axis = 2)
+        addLog =  T.log(componentSum_before_sum + T.ones_like(componentSum_before_sum)) + logComponentSum_mean
         #addLog = (componentSum_before + T.ones_like().sum(axis = 2)
-        classSum = -((addLog) * inputLabel).sum(axis = 1)
         #return logComponentOutput, sqrtTemp, sigmaTemp, dimTemp, logComponentSum, logComponentSum_mean_reshape, componentSum_before, addLog, classSum
-        return classSum
+        return addLog
                 
 
 

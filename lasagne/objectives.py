@@ -89,7 +89,8 @@ __all__ = [
     "binary_hinge_loss",
     "multiclass_hinge_loss",
     "binary_accuracy",
-    "categorical_accuracy"
+    "categorical_accuracy",
+    "multi_negative_llh"
 ]
 
 
@@ -395,3 +396,6 @@ def categorical_accuracy(predictions, targets, top_k=1):
                   [slice(-top_k, None)]]
         targets = theano.tensor.shape_padaxis(targets, axis=-1)
         return theano.tensor.any(theano.tensor.eq(top, targets), axis=-1)
+
+def multi_negative_llh(llh, targets):
+    return -(llh * targets).sum(axis = 1)
