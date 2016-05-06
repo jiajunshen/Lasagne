@@ -44,11 +44,11 @@ class MultiGaussianMixture(Layer):
         self.num_components = num_components
         self.num_models = n_classes
         #_means = init.Constant(0)
-        self._means = self.add_param(_means, (self.num_models, self.num_components, self.dim), name = "Means", regularizable = True, trainable = True)
+        self._means = self.add_param(_means, (self.num_models, self.num_components, self.dim), name = "Means", regularizable = False, trainable = True)
         if weights is None:
-            weights = init.Constant(1.0/num_components)
+            weights = init.Constant(1.0)
 
-        self.weights = self.add_param(weights, (self.num_models, self.num_components,), name = "Weights", regularizable=True, trainable = True)
+        self.weights = self.add_param(weights, (self.num_models, self.num_components,), name = "Weights", regularizable=False, trainable = True)
         
         if sigma is None:
             sigma = init.Constant(0.0)
