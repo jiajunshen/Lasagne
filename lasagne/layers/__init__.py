@@ -12,3 +12,5 @@ from .embedding import *
 from .recurrent import *
 from .special import *
 from .gaussianMixture import *
+from .gaussianMixtureScore import *
+from .gaussianMixture_classification import *
