@@ -113,7 +113,11 @@ class MultiGaussianMixtureClassification(Layer):
         addLog =  T.log(componentSum_before_sum + T.ones_like(componentSum_before_sum)) + logComponentSum_max
         #addLog = (componentSum_before + T.ones_like().sum(axis = 2)
         #return logComponentOutput, sqrtTemp, sigmaTemp, dimTemp, logComponentSum, logComponentSum_mean_reshape, componentSum_before, addLog, classSum
-        return addLog, addLog.argmax(axis = 1)
+        addLog_max = addLog.max(axis = 1).dimshuffle(0, 'x')
+        addLog_processed = addLog - addLog_max
+        addLog_processed = T.exp(addLog_processed)
+        softMaxPrediction = addLog_processed / (addLog_processed.sum(axis = 1).dimshuffle(0, 'x'))
+        return addLog, softMaxPrediction
                 
 
 
