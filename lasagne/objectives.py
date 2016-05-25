@@ -1,3 +1,4 @@
+import theano.tensor as T
 """
 Provides some minimal help with building loss expressions for training or
 validating a neural network.
@@ -90,7 +91,8 @@ __all__ = [
     "multiclass_hinge_loss",
     "binary_accuracy",
     "categorical_accuracy",
-    "multi_negative_llh"
+    "multi_negative_llh",
+    "generative_loss"
 ]
 
 
@@ -399,3 +401,21 @@ def categorical_accuracy(predictions, targets, top_k=1):
 
 def multi_negative_llh(llh, targets):
     return -(llh * targets).sum(axis = 1)
+
+
+
+def generative_loss(output, labels):
+    #Based on the paper: generative modeling of the CNN
+    #exp(output)
+    output_max = output.max(axis = 0)
+    output_max_reshape = output_max.dimshuffle('x', 0)
+    result_before = T.exp(output - output_max_reshape)
+    result_before_sum = result_before.sum(axis = 0)
+    
+    result = T.log(result_before_sum + T.ones_like(result_before_sum)) + output_max
+
+    result_reshape = result.dimshuffle('x', 0)
+
+    # The shape below is n x c
+    return -((output - result_reshape) * labels).sum(axis = 1)
+

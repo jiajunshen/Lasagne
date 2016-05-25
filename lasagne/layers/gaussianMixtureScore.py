@@ -44,6 +44,7 @@ class MultiGaussianMixtureScore(Layer):
         self.num_components = num_components
         self.num_models = n_classes
         #_means = init.Constant(0)
+        print(_means)
         self._means = self.add_param(_means, (self.num_models, self.num_components, self.dim), name = "Means", regularizable = False, trainable = True)
         if weights is None:
             weights = init.Constant(1.0)
@@ -60,7 +61,7 @@ class MultiGaussianMixtureScore(Layer):
     def get_output_for(self,input, **kwargs):
 
         if input.ndim > 2:
-            input = inpu.flatten(2)
+            input = input.flatten(2)
 
         inputData = input * 10
         inputData.name = 'inputData'
@@ -73,16 +74,17 @@ class MultiGaussianMixtureScore(Layer):
         mean_reshape = T.patternbroadcast(mean_reshape, (True, False, False,False))
         mean_reshape.name = 'mean_reshape'
 
+        #self.sigma = nonlinearities.rectify(self.sigma) + T.ones_like(self.sigma)
         sigma = T.exp(self.sigma)
         sigma_reshape = sigma.dimshuffle('x', 0, 1, 2)
         sigma_reshape = T.patternbroadcast(sigma_reshape, (True, False, False, False))
         sigma_reshape.name = 'sigma_reshape'
 
-        weights = self.weights
-        #weights = T.exp(self.weights)
-        #weights_sum = T.sum(weights, axis = 1)
-        #weights_sum = T.patternbroadcast(weights_sum.dimshuffle(0,'x'), (False, True))
-        #weights = weights / weights_sum
+        #self.weights = nonlinearities.rectify(self.weights) + 1e-16
+        weights = T.exp(self.weights)
+        weights_sum = T.sum(weights, axis = 1)
+        weights_sum = T.patternbroadcast(weights_sum.dimshuffle(0,'x'), (False, True))
+        weights = weights / weights_sum
         
         weights_reshape = weights.dimshuffle('x', 0, 1)
         weights_reshape = T.patternbroadcast(weights_reshape, (True, False, False))
@@ -94,37 +96,32 @@ class MultiGaussianMixtureScore(Layer):
         sqrtTemp = T.sqr((inputData_reshape - mean_reshape) * sigma_inverse_sqrt).sum(axis = 3) 
         
         # negative: 784 * log(sigma) ? sigma = 0.1 -> -1805, else positive.
-        #sigmaTemp = T.log(sigma_reshape).sum(axis = 3)
+        sigmaTemp = T.log(sigma_reshape).sum(axis = 3)
         
 
         # positive:28x28 dimension, then we have 784 * log(2\pi) = 1440
-        #dimTemp = T.ones((self.num_models, self.num_components), 'float32') * self.dim * T.log(2.0 * np.pi)
+        dimTemp = T.ones((self.num_models, self.num_components), 'float32') * self.dim * T.log(2.0 * np.pi)
         
         #logComponentOutput = - 1.0 / 2 * (sqrtTemp + sigmaTemp + dimTemp)
         logComponentOutput = -1.0/2 * sqrtTemp
         logComponentOutput.name = 'logComponentOutput'
-        logComponentSum = logComponentOutput + T.log(weights_reshape)
+        #logComponentSum = logComponentOutput + T.log(weights_reshape)
+        logComponentSum = logComponentOutput
         logComponentSum.name = 'logComponentSum'
         logComponentSum_max = logComponentSum.max(axis = 2)
         logComponentSum_max_reshape = logComponentSum_max.dimshuffle(0, 1, 'x')
         componentSum_before = T.exp(logComponentSum - logComponentSum_max_reshape)
         componentSum_before_sum = componentSum_before.sum(axis = 2)
-        
         addLog =  T.log(componentSum_before_sum + T.ones_like(componentSum_before_sum)) + logComponentSum_max
         #addLog = (componentSum_before + T.ones_like().sum(axis = 2)
         #return logComponentOutput, sqrtTemp, sigmaTemp, dimTemp, logComponentSum, logComponentSum_mean_reshape, componentSum_before, addLog, classSum
-        logComponentBatch_max = addLog.max(axis = 0)
-        logComponentBatch_max_reshape = logComponentBatch_max.dimshuffle('x', 0)
-        logComponentBatch_before = T.exp(addLog - logComponentBatch_max_reshape)
-        logComponentBatch_before_sum = logComponentBatch_before.sum(axis = 0)
-
-        subtractLog = T.log(logComponentBatch_before_sum + T.ones_like(logComponentBatch_before_sum)) + logComponentBatch_max
-
-        subtractLog_reshape = subtractLog.dimshuffle('x', 0)
-
-        #return addLog - subtractLog_reshape - T.log(T.ones_like(addLog) * 1.0 / addLog.shape[0])
+        addLog_max = addLog.max(axis = 1).dimshuffle(0, 'x')
         
-        return addLog, subtractLog_reshape, addLog - subtractLog_reshape
+        #addLog_processed = addLog - addLog_max
+        #addLog_processed = T.exp(addLog_processed)
+        #softMaxPrediction = addLog_processed / (addLog_processed.sum(axis = 1).dimshuffle(0, 'x'))
+        #return addLog, softMaxPrediction, logComponentSum
+        return addLog
                 
 
 

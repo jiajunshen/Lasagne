@@ -48,11 +48,11 @@ class MultiGaussianMixtureClassification(Layer):
         if weights is None:
             weights = init.Constant(1.0)
 
-        self.weights = self.add_param(weights, (self.num_models, self.num_components,), name = "Weights", regularizable=False, trainable = True)
+        self.weights = self.add_param(weights, (self.num_models, self.num_components,), name = "Weights", regularizable=False, trainable = False)
         
         if sigma is None:
             sigma = init.Constant(0.0)
-        self.sigma = self.add_param(sigma, (self.num_models, self.num_components, self.dim), name = "Sigmas", regularizable = True, trainable = True)
+        self.sigma = self.add_param(sigma, (self.num_models, self.num_components, self.dim), name = "Sigmas", regularizable = True, trainable = False)
 
     def get_output_shape_for(self, input_shape):
         return (input_shape[0],)            
@@ -114,10 +114,12 @@ class MultiGaussianMixtureClassification(Layer):
         #addLog = (componentSum_before + T.ones_like().sum(axis = 2)
         #return logComponentOutput, sqrtTemp, sigmaTemp, dimTemp, logComponentSum, logComponentSum_mean_reshape, componentSum_before, addLog, classSum
         addLog_max = addLog.max(axis = 1).dimshuffle(0, 'x')
-        addLog_processed = addLog - addLog_max
-        addLog_processed = T.exp(addLog_processed)
-        softMaxPrediction = addLog_processed / (addLog_processed.sum(axis = 1).dimshuffle(0, 'x'))
-        return addLog, softMaxPrediction
+        
+        #addLog_processed = addLog - addLog_max
+        #addLog_processed = T.exp(addLog_processed)
+        #softMaxPrediction = addLog_processed / (addLog_processed.sum(axis = 1).dimshuffle(0, 'x'))
+        #return addLog, softMaxPrediction, logComponentSum
+        return addLog
                 
 
 
